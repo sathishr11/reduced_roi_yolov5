@@ -35,6 +35,17 @@ from utils.general import (DATASETS_DIR, LOGGER, NUM_THREADS, TQDM_BAR_FORMAT, c
                            xywh2xyxy, xywhn2xyxy, xyxy2xywhn)
 from utils.torch_utils import torch_distributed_zero_first
 
+###################################################################
+#Make mask
+# image_label = np.zeros((720,1280,3), dtype='uint8')
+# image_label[:, 640:, 2] = 255   #Modify the mask location
+print(os.getcwd())
+image_label = cv2.imread('mask_preparation/json/clear_json/label.png')   #Modify the mask location according to your own path
+image_label[:, :640, :] = 0 # Mask all left half region
+img2gray = cv2.cvtColor(image_label, cv2.COLOR_BGR2GRAY)
+ret,mask = cv2.threshold(img2gray,0,255,cv2.THRESH_BINARY)
+###################################################################
+
 # Parameters
 HELP_URL = 'See https://github.com/ultralytics/yolov5/wiki/Train-Custom-Data'
 IMG_FORMATS = 'bmp', 'dng', 'jpeg', 'jpg', 'mpo', 'png', 'tif', 'tiff', 'webp', 'pfm'  # include image suffixes
@@ -228,7 +239,10 @@ class LoadScreenshots:
         if self.transforms:
             im = self.transforms(im0)  # transforms
         else:
-            im = letterbox(im0, self.img_size, stride=self.stride, auto=self.auto)[0]  # padded resize
+            # Apply mask for reducing roi
+            im = cv2.bitwise_and(im0, im0, mask=mask)
+            im = letterbox(im, self.img_size, stride=self.stride, auto=self.auto)[0]  # padded resize            
+            # im = letterbox(im0, self.img_size, stride=self.stride, auto=self.auto)[0]  # padded resize
             im = im.transpose((2, 0, 1))[::-1]  # HWC to CHW, BGR to RGB
             im = np.ascontiguousarray(im)  # contiguous
         self.frame += 1
@@ -310,7 +324,10 @@ class LoadImages:
         if self.transforms:
             im = self.transforms(im0)  # transforms
         else:
-            im = letterbox(im0, self.img_size, stride=self.stride, auto=self.auto)[0]  # padded resize
+            # Mask for reducing roi
+            im = cv2.bitwise_and(im0, im0, mask=mask)
+            im = letterbox(im, self.img_size, stride=self.stride, auto=self.auto)[0]  # padded resize            
+            # im = letterbox(im0, self.img_size, stride=self.stride, auto=self.auto)[0]  # padded resize
             im = im.transpose((2, 0, 1))[::-1]  # HWC to CHW, BGR to RGB
             im = np.ascontiguousarray(im)  # contiguous
 
@@ -414,7 +431,9 @@ class LoadStreams:
         if self.transforms:
             im = np.stack([self.transforms(x) for x in im0])  # transforms
         else:
-            im = np.stack([letterbox(x, self.img_size, stride=self.stride, auto=self.auto)[0] for x in im0])  # resize
+            # Mask for reducing roi
+            im = np.stack([letterbox(cv2.bitwise_and(x, x, mask=mask), self.img_size, stride=self.stride, auto=self.auto)[0] for x in im0])  # resize
+            # im = np.stack([letterbox(x, self.img_size, stride=self.stride, auto=self.auto)[0] for x in im0])  # resize
             im = im[..., ::-1].transpose((0, 3, 1, 2))  # BGR to RGB, BHWC to BCHW
             im = np.ascontiguousarray(im)  # contiguous
 
